@@ -3,52 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Numkit IDE WASM Test</title>
+    <title>Numkit IDE WASM</title>
 </head>
 <body>
     <h1>Numkit IDE WebAssembly</h1>
     <div id="output">Загрузка и инициализация модуля...</div>
 
+    <!-- 1. Подключаем JS-обертку от Emscripten -->
     <script src="./numkit_ide.js"></script>
 
+    <!-- 2. Инициализируем модуль -->
     <script>
-        // Функция для вывода логов на экран
         function log(message) {
             console.log(message);
             document.getElementById('output').innerText = message;
         }
 
-        // Если вы компилировали через Emscripten:
-        // Обычно Emscripten создает глобальный объект Module (или функцию для его инициализации),
-        // который автоматически находит .wasm файл в той же папке и загружает его.
-        if (typeof Module !== 'undefined') {
-            Module.onRuntimeInitialized = function() {
-                log("Модуль успешно загружен через Emscripten!");
-                // Здесь можно вызывать функции из C/C++ через ccall/cwrap или Module._имя_функции
-            };
-        } else {
-            // Если у вас чистый (raw) WASM/JS без тяжелых оберток, 
-            // загружаем его вручную через стандартный API:
+        // Вызываем функцию, которую экспортирует numkit_ide.js
+        createNumkitIdeModule({
+            // Вы можете переопределить функции вывода, если в C++ используется printf/std::cout
+            print: (text) => console.log("WASM Print: ", text),
+            printErr: (text) => console.error("WASM Error: ", text)
+        }).then((Module) => {
+            log("Модуль успешно загружен через Emscripten!");
+            console.log("Готовый объект модуля:", Module);
             
-            const importObject = {
-                env: {
-                    memory: new WebAssembly.Memory({ initial: 256 }),
-                    abort: () => console.log("Abort!")
-                }
-            };
-
-            WebAssembly.instantiateStreaming(fetch('./numkit_ide.wasm'), importObject)
-                .then(result => {
-                    log("WASM-модуль успешно загружен вручную!");
-                    console.log("Экспортированные функции:", result.instance.exports);
-                    
-                    // Пример вызова функции, если она есть (замените на вашу функцию):
-                    // const res = result.instance.exports.myFunction();
-                })
-                .catch(err => {
-                    log("Ошибка загрузки WASM: " + err.message);
-                });
-        }
+            // Теперь вы можете обращаться к вашим функциям через объект Module
+            // Например: Module._my_c_function() или Module.my_cpp_class
+        }).catch((err) => {
+            log("Критическая ошибка загрузки: " + err);
+        });
     </script>
 </body>
 </html>
